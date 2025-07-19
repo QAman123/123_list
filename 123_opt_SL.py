@@ -575,13 +575,13 @@ def generate_summary_report(results):
                 total_savings += savings
                 report.append(f"- {row['Article name']}:")
                 report.append(
-                    f"  Current: {row['Final qty to order']} qty at PB{row['Price Break Tier']} = ${row['cost_current_PB']:.2f}")
+                    f"  Current: {row['Final qty to order']} qty at PB{row['Price Break Tier']} = €{row['cost_current_PB']:.0f}")
                 report.append(
-                    f"  Higher: {row['higher_tier_qty_required']} qty at next PB = ${row['cost_higher_PB']:.2f}")
-                report.append(f"  SAVINGS: ${savings:.2f}")
+                    f"  Higher: {row['higher_tier_qty_required']} qty at next PB = €{row['cost_higher_PB']:.0f}")
+                report.append(f"  SAVINGS: €{savings:.2f}")
                 report.append("")
 
-            report.append(f"TOTAL POTENTIAL SAVINGS: ${total_savings:.2f}")
+            report.append(f"TOTAL POTENTIAL SAVINGS: €{total_savings:.0f}")
         else:
             report.append("No items found where higher price break would result in savings.")
 
@@ -804,10 +804,10 @@ def main():
                             'Article Name': row['Article name'],
                             'Current Qty': int(row['Final qty to order']),
                             'Current PB': f"PB{row['Price Break Tier']}",
-                            'Current Cost': f"${row['cost_current_PB']:.2f}",
+                            'Current Cost': f"€{row['cost_current_PB']:.0f}",
                             'Higher Qty Required': int(row['higher_tier_qty_required']),
-                            'Higher PB Cost': f"${row['cost_higher_PB']:.2f}",
-                            'SAVINGS': f"${abs(row['cost_difference']):.2f}"
+                            'Higher PB Cost': f"€{row['cost_higher_PB']:.0f}",
+                            'SAVINGS': f"€{abs(row['cost_difference']):.0f}"
                         })
 
                     savings_df = pd.DataFrame(savings_data)
@@ -827,7 +827,7 @@ def main():
 
                     # Total potential savings
                     total_savings = abs(lower_cost_items['cost_difference'].sum())
-                    st.success(f"🎉 **Total Potential Savings: ${total_savings:.2f}**")
+                    st.success(f"🎉 **Total Potential Savings: €{total_savings:.0f}**")
 
     else:
         st.info("👆 Please upload Excel files to begin analysis")
