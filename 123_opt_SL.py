@@ -501,10 +501,9 @@ def generate_summary_report(results):
 
     # Summary
     report.append("SUMMARY:")
-    report.append(f"- Original items: {len(original_df)}")
-    report.append(f"- Combined items: {len(final_df)}")
-    report.append(f"- Items saved: {len(original_df) - len(final_df)}")
-    report.append(f"- Sets combined: {len(combined_sets)}")
+    report.append(f"- Original nr items: {len(original_df)}")
+    report.append(f"- Nr items after combining sizes: {len(final_df)}")
+    report.append(f"- {len(original_df) - len(final_df)} items combined into {len(combined_sets)} items")
     report.append("")
 
     # Combined sets
@@ -540,14 +539,13 @@ def generate_summary_report(results):
             report.append("ITEMS AT HIGHEST PRICE BREAK (PERCENTAGE ANALYSIS):")
             report.append(f"- Total items at highest break: {len(pb_items)}")
             report.append(f"- Average percentage of highest PB: {pb_items['Highest PB Percentage'].mean():.2f}%")
-            report.append(f"- Items above 100% of highest PB: {len(pb_items[pb_items['Highest PB Percentage'] > 100])}")
 
-            report.append(f"\nALL items with highest percentages of their price break:")
+            report.append(f"\nALL items in their highest price break:")
             all_pb = pb_items.sort_values('Highest PB Percentage', ascending=False)[
                 ['Article name', 'Final qty to order', 'Price Break Tier', 'Highest PB Percentage']]
             for _, row in all_pb.iterrows():
                 report.append(
-                    f"- {row['Article name']}: {row['Final qty to order']} qty ({row['Highest PB Percentage']:.2f}% of PB{row['Price Break Tier']})")
+                    f"- {row['Article name']}: {row['Final qty to order']:.0f} qty ({row['Highest PB Percentage']:.2f}% of PB{row['Price Break Tier']})")
 
     report.append("")
 
@@ -570,16 +568,33 @@ def generate_summary_report(results):
             report.append(
                 f"\nItems where higher price break costs LESS than current price break - POTENTIAL SAVINGS ({len(lower_cost_items)} items):")
             total_savings = 0
+
             for _, row in lower_cost_items.iterrows():
+                article_name = row.get('Article name', '')
+                current_qty = int(row.get('Final qty to order', 0))
+                pb_tier = float(row.get('Price Break Tier', 0))
+                cost_current = float(row.get('cost_current_PB', 0))
+                higher_qty = float(row.get('higher_tier_qty_required', 0))
+                #higher_qty = higher_qty + 0.01
+                cost_higher = float(row.get('cost_higher_PB', 0))
+                cost_diff = float(row.get('cost_difference', 0))
+
                 savings = abs(row['cost_difference'])
                 total_savings += savings
                 report.append(f"- {row['Article name']}:")
                 report.append(
-                    f"  Current: {row['Final qty to order']} qty at PB{row['Price Break Tier']} = €{row['cost_current_PB']:.0f}")
+                    f"  Current ordered: {row['Final qty to order']:.0f} qty at PB{row['Price Break Tier']} = €{row['cost_current_PB']:.0f}")
                 report.append(
-                    f"  Higher: {row['higher_tier_qty_required']} qty at next PB = €{row['cost_higher_PB']:.0f}")
+                    f"  Higher: {row['higher_tier_qty_required']:.0f} qty at next PB = €{row['cost_higher_PB']:.0f}")
+                report.append(
+                    f"  Opco will save: €{(cost_current - ((cost_higher / higher_qty) * current_qty)):.0f}")
+                report.append(
+                    f"  Global needs to spend: -€{((cost_higher / higher_qty) * (higher_qty - current_qty)):.0f}")
+                report.append(
+                    f"  Global takes on stock: {(higher_qty - current_qty):.0f} qty")
                 report.append(f"  SAVINGS: €{savings:.2f}")
                 report.append("")
+
 
             report.append(f"TOTAL POTENTIAL SAVINGS: €{total_savings:.0f}")
         else:
@@ -587,7 +602,7 @@ def generate_summary_report(results):
 
     report.append("")
     report.append("=" * 60)
-    report.append("END OF REPORT")
+    report.append("END OF REPORT - FCH")
     report.append("=" * 60)
 
     return "\n".join(report)
@@ -606,7 +621,7 @@ def get_base_filename(uploaded_files):
 def main():
     st.set_page_config(page_title="Price Break Analysis Tool", layout="wide")
 
-    st.title("🔍 Price Break Analysis Tool")
+    st.title("🔍 123-List Analysis Tool")
     st.markdown("Upload your Excel files to analyze price breaks and find cost optimization opportunities")
 
     # File upload
@@ -681,14 +696,25 @@ def main():
             # Summary metrics
             col1, col2, col3, col4 = st.columns(4)
             with col1:
-                st.metric("Original Items", len(original_df))
+                st.metric("Original nr of items", len(original_df))
             with col2:
-                st.metric("Combined Items", len(final_df))
-            with col3:
-                st.metric("Items Saved", len(original_df) - len(final_df))
-            with col4:
-                st.metric("Sets Combined", len(combined_sets))
+                st.metric("Nr of items after combining sizes", len(final_df))
+            # with col3:
+            #     st.metric("Items Saved", len(original_df) - len(final_df))
+            # with col4:
+            #     st.metric("Sets Combined", len(combined_sets))
 
+            # Combined sets (in expandable section)
+            if combined_sets:
+                with st.expander(f"🔄 Combined Sets ({len(combined_sets)} total)", expanded=False):
+                    for i, combo in enumerate(combined_sets, 1):
+                        st.markdown(f"**{i}. Combined into:** {combo['combined_name']}")
+                        st.markdown(f"**Total quantity:** {combo['total_qty']}")
+                        st.markdown("**Original items:**")
+                        for orig_name in combo['original_names']:
+                            st.markdown(f"   - {orig_name}")
+                        st.markdown("---")
+            st.write("")
             # Download buttons
             st.markdown("### 📥 Download Results")
             base_filename = results.get('original_filename', 'analysis')
@@ -715,16 +741,7 @@ def main():
                     help="Text summary of all analysis results"
                 )
 
-            # Combined sets (in expandable section)
-            if combined_sets:
-                with st.expander(f"🔄 Combined Sets ({len(combined_sets)} total)", expanded=False):
-                    for i, combo in enumerate(combined_sets, 1):
-                        st.markdown(f"**{i}. Combined into:** {combo['combined_name']}")
-                        st.markdown(f"**Total quantity:** {combo['total_qty']}")
-                        st.markdown("**Original items:**")
-                        for orig_name in combo['original_names']:
-                            st.markdown(f"   - {orig_name}")
-                        st.markdown("---")
+            st.write("")
 
             # Price Break Analysis
             st.markdown("### 📊 Price Break Analysis")
@@ -734,7 +751,7 @@ def main():
             with col1:
                 st.markdown("**Price Break Distribution:**")
                 for tier, count in price_break_counts.items():
-                    st.markdown(f"- {tier}: {count} items")
+                    st.markdown(f"- Pricebreak {tier}: {count} items")
 
             with col2:
                 # Chart of price break distribution
@@ -756,9 +773,9 @@ def main():
                         st.metric("Total items at highest break", len(pb_items))
                     with col2:
                         st.metric("Average % of highest PB", f"{pb_items['Highest PB Percentage'].mean():.2f}%")
-                    with col3:
-                        above_100 = len(pb_items[pb_items['Highest PB Percentage'] > 100])
-                        st.metric("Items above 100% of highest PB", above_100)
+                    #with col3:
+                        # above_100 = len(pb_items[pb_items['Highest PB Percentage'] > 100])
+                        # st.metric("Items above 100% of highest PB", above_100)
 
                     # Show all items with their percentages
                     st.markdown("#### 🎯 ALL items with highest percentages of their price break:")
@@ -771,8 +788,8 @@ def main():
                         column_config={
                             "Article name": st.column_config.TextColumn("Article Name", width="large"),
                             "Final qty to order": st.column_config.NumberColumn("Quantity", format="%d"),
-                            "Price Break Tier": st.column_config.TextColumn("PB Tier"),
-                            "Highest PB Percentage": st.column_config.NumberColumn("PB Percentage", format="%.2f%%")
+                            "Price Break Tier": st.column_config.NumberColumn("Pricebreak"),
+                            "Highest PB Percentage": st.column_config.NumberColumn("Pricebreak Percentage", format="%.2f%%")
                         },
                         hide_index=True
                     )
@@ -800,13 +817,25 @@ def main():
                     # Create a detailed view for savings
                     savings_data = []
                     for _, row in lower_cost_items.iterrows():
+
+                        article_name = row.get('Article name', '')
+                        current_qty = int(row.get('Final qty to order', 0))
+                        pb_tier = float(row.get('Price Break Tier', 0))
+                        cost_current = float(row.get('cost_current_PB', 0))
+                        higher_qty = float(row.get('higher_tier_qty_required', 0))
+                        cost_higher = float(row.get('cost_higher_PB', 0))
+                        cost_diff = float(row.get('cost_difference', 0))
+
                         savings_data.append({
                             'Article Name': row['Article name'],
                             'Current Qty': int(row['Final qty to order']),
-                            'Current PB': f"PB{row['Price Break Tier']}",
+                            'Current PB': f"{row['Price Break Tier']}",
                             'Current Cost': f"€{row['cost_current_PB']:.0f}",
                             'Higher Qty Required': int(row['higher_tier_qty_required']),
                             'Higher PB Cost': f"€{row['cost_higher_PB']:.0f}",
+                            'Savings for Opco': f"€{(cost_current-((cost_higher/higher_qty)*current_qty)):.0f}",
+                            'Spend for Global': f"-€{((cost_higher/higher_qty)*(higher_qty-current_qty)):.0f}",
+                            'Stock Qty Global': f"{(higher_qty-current_qty):.0f}",
                             'SAVINGS': f"€{abs(row['cost_difference']):.0f}"
                         })
 
@@ -815,16 +844,19 @@ def main():
                         savings_df,
                         column_config={
                             "Article Name": st.column_config.TextColumn("Article Name", width="large"),
-                            "Current Qty": st.column_config.NumberColumn("Current Qty"),
-                            "Current PB": st.column_config.TextColumn("Current PB"),
-                            "Current Cost": st.column_config.TextColumn("Current Cost"),
-                            "Higher Qty Required": st.column_config.NumberColumn("Higher Qty Required"),
-                            "Higher PB Cost": st.column_config.TextColumn("Higher PB Cost"),
-                            "SAVINGS": st.column_config.TextColumn("💰 SAVINGS", width="medium")
+                            "Current Qty": st.column_config.TextColumn("Current Qty"),
+                            "Current PB": st.column_config.TextColumn("Current Pricebreak"),
+                            "Current Cost": st.column_config.TextColumn("Cost at current Pricebreak"),
+                            "Higher Qty Required": st.column_config.TextColumn("Qty at higher Pricebreak"),
+                            "Higher PB Cost": st.column_config.TextColumn("Cost at higher Pricebreak"),
+                            "Savings for Opco": st.column_config.TextColumn("Savings for Opco"),
+                            "Spend for Global": st.column_config.TextColumn("Spend for Global"),
+                            "Stock Qty Global": st.column_config.TextColumn("Stock Qty Global"),
+                            "SAVINGS": st.column_config.TextColumn("💰 SAVINGS OVERALL", width="medium")
                         },
                         hide_index=True
                     )
-
+                    st.write("Clarification: Global needs to take and pay for the extra quantity to achieve higher pricebreak. Savings for the Opcos will be larger than Global spend.")
                     # Total potential savings
                     total_savings = abs(lower_cost_items['cost_difference'].sum())
                     st.success(f"🎉 **Total Potential Savings: €{total_savings:.0f}**")
