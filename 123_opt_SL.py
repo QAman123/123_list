@@ -619,10 +619,10 @@ def get_base_filename(uploaded_files):
 
 
 def main():
-    st.set_page_config(page_title="Price Break Analysis Tool", layout="wide")
+    st.set_page_config(page_title="123-List Analysis Tool", layout="wide")
 
     st.title("🔍 123-List Analysis Tool")
-    st.markdown("Upload your Excel files to analyze price breaks and find cost optimization opportunities")
+    st.markdown("Upload 123-list to analyze price breaks and find cost optimization opportunities")
 
     # File upload
     uploaded_files = st.file_uploader(
